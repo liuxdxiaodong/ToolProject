@@ -16,16 +16,6 @@ struct Parameter
 	int upDown;
 };
 
-struct Offset
-{
-	double xAxisOffset;
-	double yAxisOffset;
-	double zAxisOffset;
-	double aAxisOffset;
-	int widthOffset;
-	int heightOffset;
-};
-
 void getPoint(
 	Parameter cutterPara,
 	double aAxisOffset,
@@ -40,14 +30,6 @@ void getPartialPoints(
 	cv::Mat cutVecMat,
 	cv::Mat& partPointMat
 	);
-
-//void getPartialPoints(
-//	Parameter cutterPara,
-//	cv::Mat cutVecMat,
-//	double xAxis,
-//	double width,
-//	cv::Mat partialPoints
-//	);
 
 void rotateTrans(
 	const double xAxis,
@@ -64,22 +46,14 @@ void pointsProject(
 	cv::Mat RotateMat,
 	cv::vector<cv::vector<double>>& imagePoints
 	);
-
-//void showLocalImage(
-//	cv::vector<cv::vector<double>> iamgePoints
-//	);
-
-void showImage(
-	double xAxis,
-	Parameter cutterPara,
-	cv::vector<cv::vector<double>> imagePoints
+void getWidthHeight(
+	char* fileName
 	);
-
-void readVideo();
 
 void testBladeVideo(
 	double rotationSpeed,
 	double visualWidth,
+	char* fileName,
 	Parameter cutterPara,
 	cv::Mat inTransMat,
 	cv::Mat outTransMat,
@@ -104,18 +78,12 @@ void getEdgeCirclePoints(
 void testEdgeVideo(
 	double visualWidth,
 	int indexCenter,
-	Parameter cutterPara,
-	cv::Mat inTransMat,
-	cv::Mat outTransMat,
-	cv::Mat RotateMat
-	);
-
-void testPicture(
+	char* fileName,
 	Parameter cutterPara,
 	cv::Mat inTransMat,
 	cv::Mat outTransMat,
 	cv::Mat RotateMat,
-	cv::Mat cutVecMat
+	cv::Mat edgePoints
 	);
 
 void testPro();

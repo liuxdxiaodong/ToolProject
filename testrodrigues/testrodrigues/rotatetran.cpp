@@ -5,6 +5,8 @@ using namespace cv;
 
 int widthOffset;
 int heightOffset;
+int resizeCount;
+
 // 生成旋转平移矩阵RotateMat和inTransMat,outTransMat
 void rotateTrans(
 	const double xAxis,
@@ -62,6 +64,7 @@ void getPoint(
 	vconcat(cutVecmet1, J, cutVecMat);
 }
 
+// 将得到的刃线轨迹的点分割出有用的部分，即能在图像上显示的部分
 void getPartialPoints(
 	Parameter cutterPara,
 	double xAxis,
@@ -104,7 +107,7 @@ void pointsProject(
 	)
 {
 	int num = srcPoints.cols;
-	Mat M = (Mat_<double>(3,3)<< 33636*3,0,2592/2+0.5,0,33636*3,1944/2+0.5,0,0,1);
+	Mat M = (Mat_<double>(3,3)<< 33636*2,0,2592/2+0.5,0,33636*2,1944/2+0.5,0,0,1);
 
 	for (int i=0;i<num;i++)
 	{
@@ -118,77 +121,35 @@ void pointsProject(
 		vector<double> col;
 		points.copyTo(col);
 		imagePoints.push_back(col);
-		//cout << imagePoints[i][0] << " " << imagePoints[i][1] << endl;
 	}
 }
 
-// 展示图像上的刃线轨迹
-void showImage(
-	double xAxis,
-	Parameter cutterPara,
-	vector<vector<double>> imagePoints
+// 点击图像上的一点，该点为视频中的焦点，得到指导线的起始点或焦点中心的像素坐标
+void getWidthHeight(
+	char* fileName
 	)
 {
-	int num = imagePoints.size();
-	int centerIndex = floor(xAxis/cutterPara.pointSteplen);
-
-	double deltaWidth = imagePoints[centerIndex][0]-widthOffset;
-	double deltaHeight = imagePoints[centerIndex][1]-heightOffset;
-
-
-	cv::Mat image = imread("C:\\Users\\CGGI_006\\Desktop\\LXD\\image\\blade370.bmp",1);
-
-	for(int j=0;j<num-1;j++)
-	{
-		cv::Point Pt1 = Point(imagePoints[j][0]-deltaWidth, imagePoints[j][1]-deltaHeight);
-		cv::Point Pt2 = Point(imagePoints[j+1][0]-deltaWidth, imagePoints[j+1][1]-deltaHeight);
-		line(image,Pt1,Pt2,cv::Scalar(255,255,0),3,8,0);
-	}
-	cv::imwrite("image.bmp", image);
-	resize(image,image,Size(image.cols/3,image.rows/3));
-	imshow("image",image);
-	cv::waitKey(0); 
-}
-
-void readVideo()
-{
-	VideoCapture cap("C:\\Users\\CGGI_006\\Desktop\\LXD\\project\\files\\GONEVideo\\0708\\head1.avi");
+	VideoCapture cap(fileName);
 	if(!cap.isOpened())
-	{
 		cerr << "Can not open the file!" << endl;
-	}
-	char imageName[50];
-	int i=0;
-	namedWindow("blade",1);
-	//Mat frame;
-	//cap >> frame;
-	//if(frame.empty())
-	//	cerr << "Can not read frame!" << endl;
-	//imshow("blade", frame);
 
-	//cv::waitKey(0);
-	//imwrite("frame3.bmp",frame);
+	cout << "Click the focus point!" << endl;
+	namedWindow("image",1);
 
-	for(;;)
-	{
-		Mat frame;
-		cap >> frame;
-		if(frame.empty())
-			break;
-		sprintf(imageName,"%s%d%s","C:\\Users\\CGGI_006\\Desktop\\LXD\\image\\head1",++i,".bmp");
-		cv::imwrite(imageName,frame);
-		resize(frame,frame,Size(frame.cols/3,frame.rows/3));
-		imshow("blade", frame);
+	Mat frame,frame1;
+	cap >> frame;
 
-		cout << i++ << endl;
-		if(cv::waitKey(30) >= 0)
-			break;
-	}
+	resize(frame,frame1,Size(frame.cols/resizeCount,frame.rows/resizeCount));
+	imshow("image",frame1);
+	cv::setMouseCallback("image",on_mouse,0);
+	waitKey(0);
 }
 
+// 跟踪刃线的指导线实验
 void testBladeVideo(
 	double rotationSpeed,
 	double visualWidth,
+	char* fileName,
 	Parameter cutterPara,
 	Mat inTransMat,
 	Mat outTransMat,
@@ -196,14 +157,13 @@ void testBladeVideo(
 	Mat cutVecMat
 	)
 {
-	VideoCapture cap("data\\blade3.mp4");
+	VideoCapture cap(fileName);
 	if(!cap.isOpened())
 	{
 		cerr << "Can not open the file!" << endl;
 	}
-	//long count = static_cast<long>(cap.get(CV_CAP_PROP_FRAME_COUNT));
 
-	char imageName[50];
+	//char imageName[50];
 	int i=0;
 	int indexCenter;
 
@@ -218,16 +178,8 @@ void testBladeVideo(
 			break;
 
 		double xAxis = i * rotationSpeed;
-		double aAxis = -2 * xAxis * tan(cutterPara.helixAngel * CV_PI / 180) / cutterPara.radius;
+		double aAxis = -xAxis * tan(cutterPara.helixAngel * CV_PI / 180) / cutterPara.radius;
 		vector<vector<double>> imagePoints;
-
-		if(i==0)
-		{
-			resize(frame,framehead,Size(frame.cols/3,frame.rows/3));
-			imshow("blade",framehead);
-			cv::setMouseCallback("blade",on_mouse,0);
-			waitKey(0);
-		}
 
 		rotateTrans(xAxis, aAxis, inTransMat, outTransMat, RotateMat);
 		getPartialPoints(cutterPara, xAxis, visualWidth, indexCenter,cutVecMat, partPointMat);
@@ -245,7 +197,7 @@ void testBladeVideo(
 			cv::Point Pt2 = Point(imagePoints[j+1][0]-deltaWidth, imagePoints[j+1][1]-deltaHeight);
 			line(frame,Pt1,Pt2,cv::Scalar(255,255,0),3,8,0);
 		}
-		resize(frame,frame1,Size(frame.cols/3, frame.rows/3));
+		resize(frame,frame1,Size(frame.cols/resizeCount, frame.rows/resizeCount));
 		imshow("blade", frame1);
 		//sprintf(imageName,"%s%d%s","C:\\Users\\CGGI_006\\Desktop\\LXD\\image\\blade3",i,".bmp");
 		//cv::imwrite(imageName,frame);
@@ -256,6 +208,7 @@ void testBladeVideo(
 	}
 }
 
+// 获得平角铣刀的轮廓线的有用的一部分
 void getEdgePoints(
 	double visualWidth,
 	int& indexCenter,
@@ -294,6 +247,7 @@ void getEdgePoints(
 	}
 }
 
+// 获得球头铣刀的轮廓线的有用的一部分
 void getEdgeCirclePoints(
 	double visualWidth,
 	int& indexCenter,
@@ -341,37 +295,38 @@ void getEdgeCirclePoints(
 	
 }
 
+// 轮廓的指导线
 void testEdgeVideo(
 	double visualWidth,
 	int indexCenter,
+	char* fileName,
 	Parameter cutterPara,
 	Mat inTransMat,
 	Mat outTransMat,
-	Mat RotateMat
+	Mat RotateMat,
+	Mat edgePoints
 	)
 {
-	VideoCapture cap("C:\\Users\\CGGI_006\\Desktop\\LXD\\project\\files\\GONEVideo\\0708\\head1.avi");
+	VideoCapture cap(fileName);
 	if(!cap.isOpened())
 		cerr << "Can not open the file!" << endl;
 
 	int i=0;
 	cv::namedWindow("Edge",1);
 
-	Mat edgePoints;
+	
 	vector<vector<double>> imagePoints;
 	double aAxis = 0;
 
 	//getEdgePoints(visualWidth, indexCenter, cutterPara, edgePoints);
-	getEdgeCirclePoints(visualWidth, indexCenter, cutterPara, edgePoints);
+	//getEdgeCirclePoints(visualWidth, indexCenter, cutterPara, edgePoints);
 	rotateTrans(cutterPara.measurePos, aAxis, inTransMat, outTransMat, RotateMat);
 	pointsProject(edgePoints,inTransMat, outTransMat, RotateMat, imagePoints);
-	widthOffset = 1321;
-	heightOffset = 1140;
 	double deltaWidth = imagePoints[indexCenter][0]-widthOffset;
 	double deltaHeight = imagePoints[indexCenter][1]-heightOffset;
 	int num = imagePoints.size();
 
-	for(;;)
+	while(1)
 	{
 		Mat frame,frame1;
 		cap >> frame;
@@ -384,7 +339,7 @@ void testEdgeVideo(
 			cv::Point Pt2 = Point(imagePoints[j+1][0]-deltaWidth, imagePoints[j+1][1]-deltaHeight);
 			line(frame,Pt1,Pt2,cv::Scalar(255,255,0),3,8,0);
 		}
-		resize(frame,frame1,Size(frame.cols/3, frame.rows/3));
+		resize(frame,frame1,Size(frame.cols/resizeCount, frame.rows/resizeCount));
 		imshow("Edge", frame1);
 
 		if(cv::waitKey(30)>=0)
@@ -395,25 +350,7 @@ void testEdgeVideo(
 
 }
 
-void testPicture(
-	Parameter cutterPara,
-	Mat inTransMat,
-	Mat outTransMat,
-	Mat RotateMat,
-	Mat cutVecMat
-	)
-{
-	double xAxis = 0;
-	double aAxis = -2 * xAxis / cutterPara.radius;
-	vector<vector<double>> imagePoints;
-
-	rotateTrans(xAxis, aAxis, inTransMat, outTransMat, RotateMat);
-
-	pointsProject(cutVecMat, inTransMat, outTransMat, RotateMat, imagePoints);
-	showImage(xAxis, cutterPara, imagePoints);
-}
-
-// 小测试
+// 指导线的测试程序
 void testPro()
 {
 	Parameter cutterPara;
@@ -421,27 +358,50 @@ void testPro()
 	cutterPara.radius = 6;
 	cutterPara.cutEdgelen = 24;
 	cutterPara.taperAngel = 0;
-	cutterPara.helixAngel = 35; 
-	cutterPara.pointSteplen = 0.1;
-	cutterPara.measurePos = 0;
+	cutterPara.helixAngel = 45; 
+	cutterPara.pointSteplen = 0.01;
+	cutterPara.measurePos = 10;
 	cutterPara.upDown = 0;							// 0表示上侧，1表示下侧
 
-	double aAxisOffset = -0.33;
+	double aAxisOffset = -0.35;
 	double rotationSpeed = 0.06;
 	double visualWidth = 3;
 	int indexCenter = 0;
+
+	resizeCount = 3;
+	char* fileName;
+	int proj = 1;							//1表示刃线指导线，2表示平角铣刀指导线，3表示球头铣刀指导线
+
 	cv::Mat inTransMat, outTransMat, RotateMat;
 	cv::Mat cutVecMat;
+	cv::Mat edgePoints;
 
-	//getPoint(cutterPara, aAxisOffset, cutVecMat);
-	//testBladeVideo(rotationSpeed, visualWidth, cutterPara, inTransMat, outTransMat, RotateMat, cutVecMat);
-	
-	//testPicture(cutterPara,coordOffset,inTransMat,outTransMat,RotateMat,cutVecMat);
-	
-	testEdgeVideo(visualWidth,indexCenter, cutterPara, inTransMat, outTransMat, RotateMat);
-	
+	switch(proj)
+	{
+	case 1:
+		fileName = "data\\blade1.mp4";
+		getWidthHeight(fileName);
+		getPoint(cutterPara, aAxisOffset, cutVecMat);
+		testBladeVideo(rotationSpeed, visualWidth, fileName, cutterPara, inTransMat, outTransMat, RotateMat, cutVecMat);
+		break;
+	case 2:
+		fileName = "data\\edge1.avi";
+		getWidthHeight(fileName);
+		getEdgePoints(visualWidth, indexCenter, cutterPara, edgePoints);
+		testEdgeVideo(visualWidth, indexCenter, fileName, cutterPara, inTransMat, outTransMat, RotateMat, edgePoints);
+		break;
+	case 3:
+		fileName = "data\\head1.avi";
+		cutterPara.measurePos = 0;
+		getWidthHeight(fileName);
+		getEdgeCirclePoints(visualWidth, indexCenter, cutterPara, edgePoints);
+		testEdgeVideo(visualWidth,indexCenter, fileName, cutterPara, inTransMat, outTransMat, RotateMat, edgePoints);
+		break;
+
+	}
 }
 
+// 寻找指导线焦点的on_mouse函数
 void on_mouse(
 	int event,
 	int x,
@@ -454,8 +414,8 @@ void on_mouse(
 	{
 	case CV_EVENT_LBUTTONDOWN:
 		tmp_pts = cv::Point(x,y);
-		widthOffset = x*3;
-		heightOffset = y*3;
+		widthOffset = x*resizeCount;
+		heightOffset = y*resizeCount;
 		break;
 	}
 }
