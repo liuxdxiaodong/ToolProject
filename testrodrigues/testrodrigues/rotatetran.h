@@ -7,12 +7,13 @@
 struct Parameter
 {
 	double cutterLen;		//棒料长度
-	double diameter;        //铣刀直径
+	double radius;        //铣刀半径
 	double cutEdgelen;		//切削刃长度
 	double taperAngel;		//锥度角度
 	double helixAngel;		//螺旋角
 	double pointSteplen;	//精度(每隔多少mm取一个点)
 	double measurePos;
+	int upDown;
 };
 
 struct Offset
@@ -91,6 +92,13 @@ void getEdgePoints(
 	int& indexCenter,
 	Parameter cutterPara,
 	cv::Mat& edgePoints
+	);
+
+void getEdgeCirclePoints(
+	double visualWidth,
+	int& indexCenter,
+	Parameter cutterPara,
+	cv::Mat& circlePoints
 	);
 
 void testEdgeVideo(

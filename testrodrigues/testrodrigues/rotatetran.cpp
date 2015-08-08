@@ -28,7 +28,7 @@ void getPoint(
 	)
 {
 
-	double radius = cutterPara.diameter / 2;
+	double radius = cutterPara.radius;
 	double lead = 2 * CV_PI * radius / tan(cutterPara.helixAngel * CV_PI / 180 );
 
 	int numofPoint;
@@ -152,7 +152,7 @@ void showImage(
 
 void readVideo()
 {
-	VideoCapture cap("C:\\Users\\CGGI_006\\Desktop\\LXD\\project\\files\\GONEVideo\\0708\\edge1.avi");
+	VideoCapture cap("C:\\Users\\CGGI_006\\Desktop\\LXD\\project\\files\\GONEVideo\\0708\\head1.avi");
 	if(!cap.isOpened())
 	{
 		cerr << "Can not open the file!" << endl;
@@ -175,7 +175,7 @@ void readVideo()
 		cap >> frame;
 		if(frame.empty())
 			break;
-		sprintf(imageName,"%s%d%s","C:\\Users\\CGGI_006\\Desktop\\LXD\\image\\blade3",++i,".bmp");
+		sprintf(imageName,"%s%d%s","C:\\Users\\CGGI_006\\Desktop\\LXD\\image\\head1",++i,".bmp");
 		cv::imwrite(imageName,frame);
 		resize(frame,frame,Size(frame.cols/3,frame.rows/3));
 		imshow("blade", frame);
@@ -218,7 +218,7 @@ void testBladeVideo(
 			break;
 
 		double xAxis = i * rotationSpeed;
-		double aAxis = -2 * xAxis * tan(cutterPara.helixAngel * CV_PI / 180) / cutterPara.diameter;
+		double aAxis = -2 * xAxis * tan(cutterPara.helixAngel * CV_PI / 180) / cutterPara.radius;
 		vector<vector<double>> imagePoints;
 
 		if(i==0)
@@ -261,7 +261,6 @@ void getEdgePoints(
 	int& indexCenter,
 	Parameter cutterPara,
 	Mat& edgePoints
-
 	)
 {
 	int pointsNum = int(2 * visualWidth / cutterPara.pointSteplen) + 1;
@@ -269,10 +268,10 @@ void getEdgePoints(
 
 	if(cutterPara.measurePos > visualWidth/2)
 	{
-		edgePoints = (Mat_<double>(3,1)<<0,-cutterPara.diameter/2,0);
+		edgePoints = (Mat_<double>(3,1)<<0,-cutterPara.radius,0);
 		for(int i=0;i<pointsNum;i++)
 		{
-			Mat colall = (Mat_<double>(3,1)<<-i*cutterPara.pointSteplen,-cutterPara.diameter/2,0);
+			Mat colall = (Mat_<double>(3,1)<<-i*cutterPara.pointSteplen,-cutterPara.radius,0);
 			cv::hconcat(edgePoints,colall,edgePoints);
 		}
 		indexCenter = medianNum;
@@ -280,19 +279,66 @@ void getEdgePoints(
 
 	else if(cutterPara.measurePos <= visualWidth/2)
 	{
-		edgePoints = (Mat_<double>(3,1)<<-visualWidth,-cutterPara.diameter/2,0);
+		edgePoints = (Mat_<double>(3,1)<<-visualWidth,-cutterPara.radius,0);
 		for(int i=1;i<=medianNum;i++)
 		{	
-			Mat colPrev = (Mat_<double>(3,1)<< -visualWidth+i*cutterPara.pointSteplen,-cutterPara.diameter/2,0);
+			Mat colPrev = (Mat_<double>(3,1)<< -visualWidth+i*cutterPara.pointSteplen,-cutterPara.radius,0);
 			cv::hconcat(edgePoints,colPrev,edgePoints);
 		}
 		for(int i=medianNum+1;i<pointsNum;i++)
 		{
-			Mat colLater = (Mat_<double>(3,1)<<0,-cutterPara.diameter/2 + (i-medianNum) * cutterPara.pointSteplen,0);
+			Mat colLater = (Mat_<double>(3,1)<<0,-cutterPara.radius + (i-medianNum) * cutterPara.pointSteplen,0);
 			cv::hconcat(edgePoints,colLater,edgePoints);
 		}
 		indexCenter = int((visualWidth-cutterPara.measurePos)/cutterPara.pointSteplen);
 	}
+}
+
+void getEdgeCirclePoints(
+	double visualWidth,
+	int& indexCenter,
+	Parameter cutterPara,
+	Mat& circlePoints
+	)
+{
+	int pointsNum;
+	if(cutterPara.measurePos >= cutterPara.radius + visualWidth / 2 
+		&& cutterPara.upDown == 0)
+	{
+		pointsNum = int(visualWidth/cutterPara.pointSteplen) + 1;
+		circlePoints = (Mat_<double>(3,1)<< -cutterPara.radius, -cutterPara.radius, 0);
+		for(int i=1; i<pointsNum;i++)
+		{
+			Mat colall = (Mat_<double>(3,1)<< -cutterPara.radius - i*cutterPara.pointSteplen, -cutterPara.radius, 0);
+			cv::hconcat(circlePoints, colall, circlePoints);
+		}
+		indexCenter = int(visualWidth/(cutterPara.pointSteplen*2));
+	}
+	else if(cutterPara.measurePos >= 0 
+			&& cutterPara.measurePos < cutterPara.radius + visualWidth/2
+			&& cutterPara.upDown == 0)
+	{
+		pointsNum = int((visualWidth+CV_PI)/cutterPara.pointSteplen) + 1;
+		circlePoints = (Mat_<double>(3,1)<<-cutterPara.radius-visualWidth, -cutterPara.radius, 0);
+		for(int i=1; i<visualWidth/cutterPara.pointSteplen; i++)
+		{
+			Mat colPrev = (Mat_<double>(3,1)<<-cutterPara.radius-visualWidth+i*cutterPara.pointSteplen, -cutterPara.radius, 0);
+			cv::hconcat(circlePoints,colPrev,circlePoints);
+		}
+		for(int j=visualWidth/cutterPara.pointSteplen;j<pointsNum;j++)
+		{
+			Mat colLater = (Mat_<double>(3,1)<<cutterPara.radius*(-1+sin(j*cutterPara.pointSteplen-visualWidth)),
+											   cutterPara.radius*(-cos(j*cutterPara.pointSteplen-visualWidth)),
+											   0);
+			cv::hconcat(circlePoints,colLater,circlePoints);
+		}
+
+		if(cutterPara.measurePos>cutterPara.radius)
+			indexCenter = int((cutterPara.radius+visualWidth-cutterPara.measurePos)/cutterPara.pointSteplen);
+		else
+			indexCenter = int((visualWidth+asin((cutterPara.radius-cutterPara.measurePos)/cutterPara.radius))/cutterPara.pointSteplen);
+	}
+	
 }
 
 void testEdgeVideo(
@@ -304,7 +350,7 @@ void testEdgeVideo(
 	Mat RotateMat
 	)
 {
-	VideoCapture cap("C:\\Users\\CGGI_006\\Desktop\\LXD\\project\\files\\GONEVideo\\0708\\edge1.avi");
+	VideoCapture cap("C:\\Users\\CGGI_006\\Desktop\\LXD\\project\\files\\GONEVideo\\0708\\head1.avi");
 	if(!cap.isOpened())
 		cerr << "Can not open the file!" << endl;
 
@@ -315,12 +361,12 @@ void testEdgeVideo(
 	vector<vector<double>> imagePoints;
 	double aAxis = 0;
 
-	getEdgePoints(visualWidth, indexCenter, cutterPara, edgePoints);
+	//getEdgePoints(visualWidth, indexCenter, cutterPara, edgePoints);
+	getEdgeCirclePoints(visualWidth, indexCenter, cutterPara, edgePoints);
 	rotateTrans(cutterPara.measurePos, aAxis, inTransMat, outTransMat, RotateMat);
 	pointsProject(edgePoints,inTransMat, outTransMat, RotateMat, imagePoints);
-
-	widthOffset = 1188;
-	heightOffset = 721;
+	widthOffset = 1321;
+	heightOffset = 1140;
 	double deltaWidth = imagePoints[indexCenter][0]-widthOffset;
 	double deltaHeight = imagePoints[indexCenter][1]-heightOffset;
 	int num = imagePoints.size();
@@ -358,7 +404,7 @@ void testPicture(
 	)
 {
 	double xAxis = 0;
-	double aAxis = -2 * xAxis / cutterPara.diameter;
+	double aAxis = -2 * xAxis / cutterPara.radius;
 	vector<vector<double>> imagePoints;
 
 	rotateTrans(xAxis, aAxis, inTransMat, outTransMat, RotateMat);
@@ -372,12 +418,13 @@ void testPro()
 {
 	Parameter cutterPara;
 	cutterPara.cutterLen = 75;
-	cutterPara.diameter = 12;
+	cutterPara.radius = 6;
 	cutterPara.cutEdgelen = 24;
 	cutterPara.taperAngel = 0;
 	cutterPara.helixAngel = 35; 
 	cutterPara.pointSteplen = 0.1;
-	cutterPara.measurePos = 2;
+	cutterPara.measurePos = 0;
+	cutterPara.upDown = 0;							// 0表示上侧，1表示下侧
 
 	double aAxisOffset = -0.33;
 	double rotationSpeed = 0.06;
